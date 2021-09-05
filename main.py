@@ -19,6 +19,9 @@ COLORS = [
 
 COLOR_RESET = "\u001b[0m"
 
+# CONFIG
+
+RSA_PATH = "rsa.private"
 PORT = 2222
 SERVER_NAME = "PROUTROOM"
 
@@ -27,7 +30,7 @@ USERCFG = {}
 logging.basicConfig()
 logger = logging.getLogger()
 
-host_key = paramiko.RSAKey.from_private_key_file(filename="rsa.private")
+host_key = paramiko.RSAKey.from_private_key_file(filename=RSA_PATH)
 
 class ChatRoomServ(paramiko.ServerInterface):
     def __init__(self):
