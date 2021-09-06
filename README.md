@@ -6,6 +6,10 @@
 >  At this point, it's really nothing more than a sketch.
 
 ### Setting up
+Install the requirements:
+
+```pip3 install -r requirements```
+
 The code requires an RSA private key, named `rsa.private`.
 > The filename can be easily changed in the config part of the code!
 
