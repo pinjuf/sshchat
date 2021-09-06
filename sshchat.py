@@ -65,77 +65,100 @@ class ChatRoomServ(paramiko.ServerInterface):
     def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
         return True
 
+def build_status(userchan):
+    output = f"[CHATROOM STATUS]\r\nServer name: {SERVER_NAME}\r\nCurrently {len(chans)} user(s) online.\r\nYour username: [{userchan._usernamecolor}]\r\n"
+    return output
+
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
-    for chan in chans:
-        # check if user is targeted
-        if target and chan._username not in target:
-            continue
-
-        # reset cursor, and send time string
-        chan.send("\033[u")
-        chan.send(datetime.now().strftime("(%H:%M) "))
-
-        # send "private" string
-        if target:
-            chan.send(f"*private (involves {', '.join(target)})* ")
-
-        if context=="MESSAGE":
-            chan.send(f"[{usercolor}] {msg}\r\n")
-        if context=="JOIN":
-            chan.send(f"{{LOG}} {usercolor} has joined!\r\n")
-        if context=="EXIT":
-            chan.send(f"{{LOG}} {usercolor} has exited!\r\n")
-
-        # store new cursor position, and then set it back to the top line
-        chan.send(f"\033[s\033[0;0f\033[K{chan._msg}")
-
-def handle_user_input(chan):
-    while True:
-        chan._msg = ""
-        while not chan._msg.endswith("\r"):
-            transport = chan.recv(1024)
-
-            # set cursor to 0, 0 and clear line
-            chan.send("\033[0;0f\033[K")
-            if transport == b"\x7f":
-                if len(chan._msg):
-                    chan._msg = chan._msg[:-1]
-            elif transport == b"\x04":
-                # interpret ctrl-d (EOF) as exit
-                chan._msg = "/exit"
-                break
-            else:
-                chan._msg += transport.decode("utf-8")
-
-            # send whole text, rotated for max 60 characters
-            chan.send(chan._msg[-60:])
-
-        chan.send("\033[0;0f\033[K")
-        msg = chan._msg.strip()
-
-        if msg.startswith("/exit"):
-            # send EXIT message to everyone, including exiter
-            send_global(context="EXIT", usercolor=chan._usernamecolor)
-            chans.remove(chan)
-
-            # show cursor, clear, and set cursor to 0,0
-            chan.send("\033[?25h\033[2J\033[0;0f")
-            chan.close()
-            print(f"{chan._username} has left")
-            break
-        elif msg.startswith("/msg"):
-            # check for correct usage
-            if len(msg.split(" "))<3:
+    for chan in chans.copy():
+        try:
+            # check if user is targeted
+            if target and chan._username not in target:
                 continue
 
-            target = msg.split(" ")[1]
-            tmsg   = " ".join(msg.split(" ")[2:])
-            send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
-        elif msg.startswith("/"):
-            send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user", target=[chan._username], usercolor="*HELP*")
+            # reset cursor, and send time string
+            chan.send("\033[u")
+            chan.send(datetime.now().strftime("(%H:%M) "))
 
-        elif msg:
-            send_global(msg=msg, usercolor=chan._usernamecolor)
+            # send "private" string
+            if target:
+                chan.send(f"*private (involves {', '.join(target)})* ")
+
+            if context=="MESSAGE":
+                chan.send(f"[{usercolor}] {msg}\r\n")
+            if context=="JOIN":
+                chan.send(f"{{LOG}} {usercolor} has joined!\r\n")
+            if context=="EXIT":
+                chan.send(f"{{LOG}} {usercolor} has exited!\r\n")
+            if context=="PLAIN":
+                chan.send(msg)
+
+            # store new cursor position, and then set it back to the top line
+            chan.send(f"\033[s\033[0;0f\033[K{chan._msg}")
+        except:
+            close_channel(chan)
+
+def handle_user_input(chan):
+    try:
+        while True:
+            chan._msg = ""
+            while not chan._msg.endswith("\r"):
+                transport = chan.recv(1024)
+
+                # set cursor to 0, 0 and clear line
+                chan.send("\033[0;0f\033[K")
+                if transport == b"\x7f":
+                    if len(chan._msg):
+                        chan._msg = chan._msg[:-1]
+                elif transport == b"\x04":
+                    # interpret ctrl-d (EOF) as exit
+                    chan._msg = "/exit"
+                    break
+                else:
+                    chan._msg += transport.decode("utf-8")
+
+                # send whole text, rotated for max 60 characters
+                chan.send(chan._msg[-60:])
+
+            chan.send("\033[0;0f\033[K")
+            msg = chan._msg.strip()
+            chan._msg = ""
+
+            # USER / COMMANDS
+            if msg.startswith("/exit"):
+                break
+            elif msg.startswith("/msg"):
+                # check for correct usage
+                if len(msg.split(" "))<3:
+                    continue
+
+                target = msg.split(" ")[1]
+                tmsg   = " ".join(msg.split(" ")[2:])
+                send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
+            elif msg.startswith("/status"):
+                send_global(msg=build_status(chan), target=[chan._username], context="PLAIN")
+            elif msg.startswith("/"):
+                send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status", target=[chan._username], usercolor="*HELP*")
+
+            elif msg:
+                send_global(msg=msg, usercolor=chan._usernamecolor)
+    except:
+        pass
+    close_channel(chan)
+
+def close_channel(chan):
+    # send EXIT message to everyone, excluding exiter
+    chans.remove(chan)
+    send_global(context="EXIT", usercolor=chan._usernamecolor)
+    print(f"{chan._username} has left")
+
+    # show cursor, clear, and set cursor to 0,0
+    try:
+        chan.send("\033[?25h\033[2J\033[0;0f")
+    except:
+        pass
+    chan.close()
+
 
 def init_user(ca_pair):
     client, addr = ca_pair
