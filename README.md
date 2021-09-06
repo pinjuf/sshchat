@@ -8,7 +8,7 @@
 ### Setting up
 Install the requirements:
 
-```pip3 install -r requirements```
+```pip3 install -r requirements.txt```
 
 The code requires an RSA private key, named `rsa.private`.
 > The filename can be easily changed in the config part of the code!
