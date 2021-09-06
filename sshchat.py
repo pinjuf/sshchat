@@ -4,6 +4,7 @@ import socket
 import sys
 import threading
 import random
+import hashlib
 from datetime import datetime
 
 import paramiko
@@ -43,13 +44,13 @@ class ChatRoomServ(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
-        # if user not registered, register with entered password
+        # if user not registered, register with entered password (stored as sha256)
         if not username in USERCFG.keys():
             print(f"New user: {username}|{password}")
-            USERCFG[username] = [password, random.choice(COLORS)]
+            USERCFG[username] = [hashlib.sha256(password.encode()).digest(), random.choice(COLORS)]
             return paramiko.AUTH_SUCCESSFUL
 
-        if USERCFG[username][0] == password:
+        if USERCFG[username][0] == hashlib.sha256(password.encode()).digest():
             return paramiko.AUTH_SUCCESSFUL
 
         return paramiko.AUTH_FAILED
