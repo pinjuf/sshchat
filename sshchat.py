@@ -113,10 +113,8 @@ def handle_user_input(chan):
         chan.send("\033[0;0f\033[K")
         msg = msg.strip()
 
-        if msg.startswith("/help"):
-            send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user", target=chan._username, usercolor="*HELP*")
-
-        elif msg.startswith("/exit"):
+        
+        if msg.startswith("/exit"):
             # send EXIT message to everyone, including exiter
             send_global(context="EXIT", usercolor=chan._usernamecolor)
             chans.remove(chan)
@@ -134,6 +132,9 @@ def handle_user_input(chan):
             target = msg.split(" ")[1]
             tmsg   = " ".join(msg.split(" ")[2:])
             send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
+        elif msg.startswith("/"):
+            send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user", target=[chan._username], usercolor="*HELP*")
+
         elif msg:
             send_global(msg=msg, usercolor=chan._usernamecolor)
 
