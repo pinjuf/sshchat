@@ -1,1 +1,3 @@
 rsa.private
+**/__pycache__
+**/*ipynb*
