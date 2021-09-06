@@ -87,31 +87,31 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
             chan.send(f"{{LOG}} {usercolor} has exited!\r\n")
 
         # store new cursor position, and then set it back to the top line
-        chan.send("\033[s\033[0;f")
+        chan.send(f"\033[s\033[0;0f\033[K{chan._msg}")
 
 def handle_user_input(chan):
     while True:
-        msg = ""
-        while not msg.endswith("\r"):
+        chan._msg = ""
+        while not chan._msg.endswith("\r"):
             transport = chan.recv(1024)
 
             # set cursor to 0, 0 and clear line
             chan.send("\033[0;0f\033[K")
             if transport == b"\x7f":
-                if len(msg):
-                    msg = msg[:-1]
+                if len(chan._msg):
+                    chan._msg = chan._msg[:-1]
             elif transport == b"\x04":
                 # interpret ctrl-d (EOF) as exit
-                msg = "/exit"
+                chan._msg = "/exit"
                 break
             else:
-                msg += transport.decode("utf-8")
+                chan._msg += transport.decode("utf-8")
 
             # send whole text, rotated for max 60 characters
-            chan.send(msg[-60:])
+            chan.send(chan._msg[-60:])
 
         chan.send("\033[0;0f\033[K")
-        msg = msg.strip()
+        msg = chan._msg.strip()
 
         if msg.startswith("/exit"):
             # send EXIT message to everyone, including exiter
@@ -150,6 +150,7 @@ def init_user(ca_pair):
         print(f"SSH negotiation failed for {addr[0]} failed. ({ex})")
         return
     chan = transport.accept(20)
+    chan._msg = ""
     if not chan:
         print(f"No channel for {addr[0]}.")
         return
