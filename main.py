@@ -99,7 +99,7 @@ def handle_user_input(chan):
         msg = msg.strip()
 
         if msg.startswith("/help"):
-            send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg]", target=chan._username, usercolor="*HELP*")
+            send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user", target=chan._username, usercolor="*HELP*")
         elif msg.startswith("/exit"):
             send_global(context="EXIT", usercolor=chan._usernamecolor)
             chans.remove(chan)
