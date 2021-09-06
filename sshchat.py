@@ -152,8 +152,8 @@ def close_channel(chan):
     send_global(context="EXIT", usercolor=chan._usernamecolor)
     print(f"{chan._username} has left")
 
-    # show cursor, clear, and set cursor to 0,0
     try:
+        # show cursor, clear, and set cursor to 0,0
         chan.send("\033[?25h\033[2J\033[0;0f")
     except:
         pass
