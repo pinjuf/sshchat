@@ -184,7 +184,7 @@ def init_user(ca_pair):
     chans.append(chan)
 
     # hide cursor, clear, and set cursor to 2,0 and store position
-    chan.send(f"\033[?25l\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n\033[s")
+    chan.send(f"\033[?25l\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n{build_status(chan)}\033[s")
     send_global(context="JOIN", usercolor=chan._usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
 
