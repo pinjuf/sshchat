@@ -62,14 +62,18 @@ class ChatRoomServ(paramiko.ServerInterface):
     def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
         return True
 
-def send_global(msg="", context="MESSAGE", usercolor="???"):
+def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
     if usercolor == "":
         usercolor = username
     for chan in chans:
+        if target and chan._username not in target:
+            continue
         chan.send("\033[u")
         chan.send(datetime.now().strftime("(%H:%M) "))
+        if target:
+            chan.send(f"*private (involves {', '.join(target)})* ")
         if context=="MESSAGE":
-            chan.send(f"[{usercolor}] {msg}\n")
+            chan.send(f"[{usercolor}] {msg}\r\n")
         if context=="JOIN":
             chan.send(f"{{LOG}} {usercolor} has joined!\r\n")
         if context=="EXIT":
@@ -92,49 +96,64 @@ def handle_user_input(chan):
                 msg += transport.decode("utf-8")
             chan.send(msg)
         chan.send("\033[0;0f\r\033[K")
-        if msg.strip() == "/exit":
+        msg = msg.strip()
+
+        if msg.startswith("/help"):
+            send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg]", target=chan._username, usercolor="*HELP*")
+        elif msg.startswith("/exit"):
             send_global(context="EXIT", usercolor=chan._usernamecolor)
             chans.remove(chan)
             chan.send("\033[?25h\033[2J\033[0;0f")
             chan.close()
             print(f"{chan._username} has left")
             break
-        if msg.strip():
+        elif msg.startswith("/msg"):
+            if len(msg.split(" "))<3:
+                continue
+            target = msg.split(" ")[1]
+            tmsg   = " ".join(msg.split(" ")[2:])
+            send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
+        elif msg:
             send_global(msg=msg, usercolor=chan._usernamecolor)
+
+def init_user(ca_pair):
+    client, addr = ca_pair
+    print(f"Connection from {addr[0]}!")
+
+    transport = paramiko.Transport(client)
+    transport.add_server_key(host_key)
+    server = ChatRoomServ()
+    try:
+        transport.start_server(server=server)
+    except Exception as ex:
+        print(f"SSH negotiation failed for {addr[0]} failed. ({ex})")
+        return
+    chan = transport.accept(20)
+    if not chan:
+        print(f"No channel for {addr[0]}.")
+        return
+
+    chan._username = transport.get_username()
+    print(f"User login: {chan._username}")
+    chan._usernamecolor = USERCFG[chan._username][1]+chan._username+COLOR_RESET
+    chans.append(chan)
+    chan.send(f"\033[?25l\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n\033[s")
+    send_global(context="JOIN", usercolor=chan._usernamecolor)
+    threading.Thread(target=handle_user_input, args=(chan,)).start()
     
 
 def run_chatroom():
     global chans
     chans = []
-    
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('', PORT))
 
     while True:
         sock.listen(128)
-        client, addr = sock.accept()
-        print(f"Connection from {addr[0]}!")
+        ca = sock.accept()
+        threading.Thread(target=init_user, args=(ca,)).start()
 
-        transport = paramiko.Transport(client)
-        transport.add_server_key(host_key)
-        server = ChatRoomServ()
-        try:
-            transport.start_server(server=server)
-        except Exception as ex:
-            print(f"SSH negotiation failed for {addr[0]} failed. ({ex})")
-            continue
-        chan = transport.accept(20)
-        if not chan:
-            print(f"No channel for {addr[0]}.")
-            continue
-        
-        chan._username = transport.get_username()
-        print(f"User login: {chan._username}")
-        chan._usernamecolor = USERCFG[chan._username][1]+chan._username+COLOR_RESET
-        chans.append(chan)
-        chan.send(f"\033[?25l\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n\033[s")
-        send_global(context="JOIN", usercolor=chan._usernamecolor)
-        threading.Thread(target=handle_user_input, args=(chan,)).start()
-
+print(f"Starting chatroom {SERVER_NAME}!")
 run_chatroom()
