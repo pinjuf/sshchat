@@ -69,22 +69,22 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
         # check if user is targeted
         if target and chan._username not in target:
             continue
-            
+
         # reset cursor, and send time string
         chan.send("\033[u")
         chan.send(datetime.now().strftime("(%H:%M) "))
-        
+
         # send "private" string
         if target:
             chan.send(f"*private (involves {', '.join(target)})* ")
-        
+
         if context=="MESSAGE":
             chan.send(f"[{usercolor}] {msg}\r\n")
         if context=="JOIN":
             chan.send(f"{{LOG}} {usercolor} has joined!\r\n")
         if context=="EXIT":
             chan.send(f"{{LOG}} {usercolor} has exited!\r\n")
-        
+
         # store new cursor position, and then set it back to the top line
         chan.send("\033[s\033[0;f")
 
@@ -119,7 +119,7 @@ def handle_user_input(chan):
             # send EXIT message to everyone, including exiter
             send_global(context="EXIT", usercolor=chan._usernamecolor)
             chans.remove(chan)
-            
+
             # show cursor, clear, and set cursor to 0,0
             chan.send("\033[?25h\033[2J\033[0;0f")
             chan.close()
@@ -129,7 +129,7 @@ def handle_user_input(chan):
             # check for correct usage
             if len(msg.split(" "))<3:
                 continue
-            
+
             target = msg.split(" ")[1]
             tmsg   = " ".join(msg.split(" ")[2:])
             send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
@@ -162,7 +162,7 @@ def init_user(ca_pair):
     chan.send(f"\033[?25l\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n\033[s")
     send_global(context="JOIN", usercolor=chan._usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
-    
+
 
 def run_chatroom():
     global chans
