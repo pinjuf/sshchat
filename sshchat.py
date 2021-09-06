@@ -153,8 +153,8 @@ def close_channel(chan):
     print(f"{chan._username} has left")
 
     try:
-        # show cursor, clear, and set cursor to 0,0
-        chan.send("\033[?25h\033[2J\033[0;0f")
+        # clear, and set cursor to 0,0
+        chan.send("\033[2J\033[0;0f")
     except:
         pass
     chan.close()
@@ -183,8 +183,8 @@ def init_user(ca_pair):
     chan._usernamecolor = USERCFG[chan._username][1]+chan._username+COLOR_RESET
     chans.append(chan)
 
-    # hide cursor, clear, and set cursor to 2,0 and store position
-    chan.send(f"\033[?25l\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n{build_status(chan)}\033[s")
+    # clear, and set cursor to 2,0 and store position
+    chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n{build_status(chan)}\033[s")
     send_global(context="JOIN", usercolor=chan._usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
 
