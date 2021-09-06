@@ -107,13 +107,12 @@ def handle_user_input(chan):
             else:
                 msg += transport.decode("utf-8")
 
-            # send whole text
-            chan.send(msg)
+            # send whole text, rotated for max 60 characters
+            chan.send(msg[-60:])
 
         chan.send("\033[0;0f\033[K")
         msg = msg.strip()
 
-        
         if msg.startswith("/exit"):
             # send EXIT message to everyone, including exiter
             send_global(context="EXIT", usercolor=chan._usernamecolor)
