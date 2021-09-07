@@ -54,7 +54,7 @@ class ChatRoomServ(paramiko.ServerInterface):
     def check_auth_password(self, username, password):
         # if user not registered, register with entered password (stored as sha256)
         if not username in USER_CFG.keys():
-            print(f"New user: {username}|{password}")
+            #print(f"New user: {username}|{password}")
             USER_CFG[username] = [hashlib.sha256(password.encode()).digest(), random.choice(COLORS)]
 
             # store data
@@ -79,7 +79,7 @@ class ChatRoomServ(paramiko.ServerInterface):
         return True
 
 def build_status(userchan):
-    output = f"[CHATROOM STATUS]\r\nServer name: {SERVER_NAME}\r\nCurrently {len(chans)} user(s) online.\r\nYour username: [{userchan._usernamecolor}]\r\n"
+    output = f"\r\n[CHATROOM STATUS]\r\nServer name: {SERVER_NAME}\r\nCurrently {len(chans)} user(s) online.\r\nYour username: [{userchan._usernamecolor}]\r\n"
     return output
 
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
@@ -140,6 +140,7 @@ def handle_user_input(chan):
             # USER / COMMANDS
             if msg.startswith("/exit"):
                 break
+
             elif msg.startswith("/msg"):
                 # check for correct usage
                 if len(msg.split(" "))<3:
@@ -148,15 +149,27 @@ def handle_user_input(chan):
                 target = msg.split(" ")[1]
                 tmsg   = " ".join(msg.split(" ")[2:])
                 send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
+
             elif msg.startswith("/status"):
                 send_global(msg=build_status(chan), target=[chan._username], context="PLAIN")
+
+            elif msg.startswith("/passwd"):
+                new_passwd = "" if len(msg.split(" "))<2 else " ".join(msg.split(" ")[1:])
+                USER_CFG[chan._username][0] = hashlib.sha256(new_passwd.encode()).digest()
+
+                 # store data
+                with open(USER_CFG_PATH, "wb") as file:
+                     pickle.dump(USER_CFG, file)
+                send_global(msg="Your password has been set.", target=[chan._username], usercolor="PASSWD")
+
             elif msg.startswith("/"):
-                send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status", target=[chan._username], usercolor="*HELP*")
+                send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status\
+\r\n/passwd <new password> to set your password", target=[chan._username], usercolor="*HELP*")
 
             elif msg:
                 send_global(msg=msg, usercolor=chan._usernamecolor)
-    except:
-        pass
+    except Exception as ex:
+        print(ex)
     close_channel(chan)
 
 def close_channel(chan):
@@ -198,7 +211,7 @@ def init_user(ca_pair):
     chans.append(chan)
 
     # clear, and set cursor to 2,0 and store position
-    chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n{build_status(chan)}\033[s")
+    chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!{build_status(chan)}\033[s")
     send_global(context="JOIN", usercolor=chan._usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
 
