@@ -11,13 +11,14 @@ Install the requirements:
 ```pip3 install -r requirements.txt```
 
 The code requires an RSA private key, named `rsa.private`.
-> The filename can be easily changed in the config part of the code!
+> The filename can be easily changed using command line options or the config part of the code!
 
 To generate such a key, you could (for example) use OpenSSL:
 
 ```openssl genrsa -out rsa.private 1024```
 
 ### Running the server
+I recommend having a quick look at the options: `./sshchat.py -h`
 To run, simply execute `sshchat.py`.
 
 Now users can connect to it over SSH (standard port is 2222). When logging in for the first time, they must enter a password, which they must use if they wish to login with the same username again. Passwords are reset each runtime.
