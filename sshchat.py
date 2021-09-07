@@ -5,7 +5,7 @@ import sys
 import threading
 import random
 import hashlib
-from getopt import getopt
+import argparse
 import pickle
 import os
 from datetime import datetime
@@ -23,24 +23,24 @@ COLORS = [
 
 COLOR_RESET = "\u001b[0m"
 
-# CONFIG
+# DEFAULT CONFIG
 
 USER_CFG_PATH = "usercfg.data"
 RSA_PATH = "rsa.private"
 PORT = 2222
 SERVER_NAME = "PROUTROOM"
 
-if os.path.exists(USER_CFG_PATH):
-    with open(USER_CFG_PATH, "rb") as file:
-        USER_CFG = pickle.load(file)
-else:
-    USER_CFG = {}
+# CFG END
 
 # logger setup, just in case
 logging.basicConfig()
 logger = logging.getLogger()
 
-host_key = paramiko.RSAKey.from_private_key_file(filename=RSA_PATH)
+def usage():
+    return ("Py. SSHChat HELP\r\n\r\n"
+           "INFO:\r\n"
+           "\tSSHChat allows for hosting chatrooms which are accessible over SSH.\r\n\tIt is written completely in Python 3.\r\n"
+          )
 
 class ChatRoomServ(paramiko.ServerInterface):
     def __init__(self):
@@ -228,6 +228,27 @@ def run_chatroom():
         sock.listen(128)
         ca = sock.accept()
         threading.Thread(target=init_user, args=(ca,)).start()
+
+argparser = argparse.ArgumentParser(usage=usage())
+argparser.add_argument("-p", "--port", type=int, default=PORT, help="SSH Server port")
+argparser.add_argument("-n", "--name", type=str, default=SERVER_NAME, help="Server name")
+argparser.add_argument("-r", "--rsafile", type=str, default=RSA_PATH, help="RSA file")
+argparser.add_argument("-d", "--data", type=str, default=USER_CFG_PATH, help="Pickle data file")
+
+args = argparser.parse_args()
+
+PORT = args.port
+SERVER_NAME = args.name
+RSA_PATH = args.rsafile
+USER_CFG_PATH = args.data
+
+host_key = paramiko.RSAKey.from_private_key_file(filename=RSA_PATH)
+if os.path.exists(USER_CFG_PATH):
+    with open(USER_CFG_PATH, "rb") as file:
+        USER_CFG = pickle.load(file)
+else:
+    USER_CFG = {}
+
 
 print(f"Starting chatroom {SERVER_NAME}!")
 run_chatroom()
