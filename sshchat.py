@@ -5,6 +5,9 @@ import sys
 import threading
 import random
 import hashlib
+from getopt import getopt
+import pickle
+import os
 from datetime import datetime
 
 import paramiko
@@ -22,11 +25,16 @@ COLOR_RESET = "\u001b[0m"
 
 # CONFIG
 
+USER_CFG_PATH = "usercfg.data"
 RSA_PATH = "rsa.private"
 PORT = 2222
 SERVER_NAME = "PROUTROOM"
 
-USERCFG = {}
+if os.path.exists(USER_CFG_PATH):
+    with open(USER_CFG_PATH, "rb") as file:
+        USER_CFG = pickle.load(file)
+else:
+    USER_CFG = {}
 
 # logger setup, just in case
 logging.basicConfig()
@@ -45,12 +53,17 @@ class ChatRoomServ(paramiko.ServerInterface):
 
     def check_auth_password(self, username, password):
         # if user not registered, register with entered password (stored as sha256)
-        if not username in USERCFG.keys():
+        if not username in USER_CFG.keys():
             print(f"New user: {username}|{password}")
-            USERCFG[username] = [hashlib.sha256(password.encode()).digest(), random.choice(COLORS)]
+            USER_CFG[username] = [hashlib.sha256(password.encode()).digest(), random.choice(COLORS)]
+
+            # store data
+            with open(USER_CFG_PATH, "wb") as file:
+                 pickle.dump(USER_CFG, file)
+
             return paramiko.AUTH_SUCCESSFUL
 
-        if USERCFG[username][0] == hashlib.sha256(password.encode()).digest():
+        if USER_CFG[username][0] == hashlib.sha256(password.encode()).digest():
             return paramiko.AUTH_SUCCESSFUL
 
         return paramiko.AUTH_FAILED
@@ -179,8 +192,9 @@ def init_user(ca_pair):
         return
 
     chan._username = transport.get_username()
+    chan._msg = ""
     print(f"User login: {chan._username}")
-    chan._usernamecolor = USERCFG[chan._username][1]+chan._username+COLOR_RESET
+    chan._usernamecolor = USER_CFG[chan._username][1]+chan._username+COLOR_RESET
     chans.append(chan)
 
     # clear, and set cursor to 2,0 and store position
