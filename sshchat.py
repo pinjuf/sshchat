@@ -160,11 +160,11 @@ def handle_user_input(chan):
                  # store data
                 with open(USER_CFG_PATH, "wb") as file:
                      pickle.dump(USER_CFG, file)
-                send_global(msg="Your password has been set.", target=[chan._username], usercolor="PASSWD")
+                send_global(msg="\r\n[PASSWD]\r\nYour password has been set.\r\n", target=[chan._username], context="PLAIN")
 
             elif msg.startswith("/"):
-                send_global(msg="\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status\
-\r\n/passwd <new password> to set your password", target=[chan._username], usercolor="*HELP*")
+                send_global(msg="\r\n[HELP]\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status\
+\r\n/passwd <new password> to set your password\r\n", target=[chan._username], context="PLAIN")
 
             elif msg:
                 send_global(msg=msg, usercolor=chan._usernamecolor)
