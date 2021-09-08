@@ -198,17 +198,16 @@ def init_user(ca_pair):
     except Exception as ex:
         print(f"SSH negotiation failed for {addr[0]} failed. ({ex})")
         return
-    chan = transport.accept(20)
-    chan._msg = ""
+    chan = transport.accept()
     if not chan:
         print(f"No channel for {addr[0]}.")
         return
 
-    chan._username = transport.get_username()
     chan._msg = ""
-    print(f"User login: {chan._username}")
+    chan._username = transport.get_username()
     chan._usernamecolor = USER_CFG[chan._username][1]+chan._username+COLOR_RESET
     chans.append(chan)
+    print(f"User login: {chan._username}")
 
     # clear, and set cursor to 2,0 and store position
     chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!{build_status(chan)}\033[s")
