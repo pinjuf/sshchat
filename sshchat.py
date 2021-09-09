@@ -73,7 +73,7 @@ class ChatRoomServ(paramiko.ServerInterface):
         self.event.set()
         return True
 
-    def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes): 
+    def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
         return True
 
 def build_status(userchan):
