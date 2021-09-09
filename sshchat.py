@@ -19,7 +19,8 @@ COLORS = [
     "\u001b[34m",
     "\u001b[35m",
     "\u001b[36m",
-    "\u001b[37m"]
+    "\u001b[37m",
+    ]
 
 COLOR_RESET = "\u001b[0m"
 
@@ -29,18 +30,16 @@ USER_CFG_PATH = "usercfg.data"
 RSA_PATH = "rsa.private"
 PORT = 2222
 SERVER_NAME = "PROUTROOM"
+VERBOSE = False
 
 # CFG END
 
-# logger setup, just in case
-logging.basicConfig()
-logger = logging.getLogger()
-
 def usage():
-    return ("Py. SSHChat HELP\r\n\r\n"
+    return (
+           "Py. SSHChat HELP\r\n\r\n"
            "INFO:\r\n"
            "\tSSHChat allows for hosting chatrooms which are accessible over SSH.\r\n\tIt is written completely in Python 3.\r\n"
-          )
+           )
 
 class ChatRoomServ(paramiko.ServerInterface):
     def __init__(self):
@@ -52,9 +51,8 @@ class ChatRoomServ(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
-        # if user not registered, register with entered password (stored as sha256)
+        # if user's first login, register with entered password (stored as sha256)
         if not username in USER_CFG.keys():
-            #print(f"New user: {username}|{password}")
             USER_CFG[username] = [hashlib.sha256(password.encode()).digest(), random.choice(COLORS)]
 
             # store data
@@ -75,12 +73,15 @@ class ChatRoomServ(paramiko.ServerInterface):
         self.event.set()
         return True
 
-    def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
+    def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes): 
         return True
 
 def build_status(userchan):
-    output = f"\r\n[CHATROOM STATUS]\r\nServer name: {SERVER_NAME}\r\nCurrently {len(chans)} user(s) online.\r\nYour username: [{userchan._usernamecolor}]\r\n"
-    return output
+    return (f"\r\n[CHATROOM STATUS]\r\n"
+              f"Server name: {SERVER_NAME}\r\n"
+              f"Currently {len(chans)} user(s) online.\r\n"
+              f"Your username: [{userchan._usernamecolor}]\r\n"
+             )
 
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
     for chan in chans.copy():
@@ -169,14 +170,14 @@ def handle_user_input(chan):
             elif msg:
                 send_global(msg=msg, usercolor=chan._usernamecolor)
     except Exception as ex:
-        print(ex)
+        logger.log(logging.INFO, ex)
     close_channel(chan)
 
 def close_channel(chan):
     # send EXIT message to everyone, excluding exiter
     chans.remove(chan)
     send_global(context="EXIT", usercolor=chan._usernamecolor)
-    print(f"{chan._username} has left")
+    logger.log(logging.INFO, f"{chan._username} has left")
 
     try:
         # clear, and set cursor to 0,0
@@ -188,7 +189,7 @@ def close_channel(chan):
 
 def init_user(ca_pair):
     client, addr = ca_pair
-    print(f"Connection from {addr[0]}!")
+    logger.log(logging.INFO, f"Connection from {addr[0]}!")
 
     transport = paramiko.Transport(client)
     transport.add_server_key(host_key)
@@ -196,20 +197,21 @@ def init_user(ca_pair):
     try:
         transport.start_server(server=server)
     except Exception as ex:
-        print(f"SSH negotiation failed for {addr[0]} failed. ({ex})")
+        logger.log(logging.INFO, f"SSH negotiation failed for {addr[0]} failed. ({ex})")
         return
     chan = transport.accept()
     if not chan:
-        print(f"No channel for {addr[0]}.")
+        logger.log(logging.INFO, f"No channel for {addr[0]}.")
         return
 
+    # evil and bad, but it works
     chan._msg = ""
     chan._username = transport.get_username()
     chan._usernamecolor = USER_CFG[chan._username][1]+chan._username+COLOR_RESET
     chans.append(chan)
-    print(f"User login: {chan._username}")
+    logger.log(logging.INFO, f"User login: {chan._username}")
 
-    # clear, and set cursor to 2,0 and store position
+    # clear, and set cursor to 2,0 and store position, before sending welcome msg
     chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!{build_status(chan)}\033[s")
     send_global(context="JOIN", usercolor=chan._usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
@@ -229,6 +231,8 @@ def run_chatroom():
         threading.Thread(target=init_user, args=(ca,)).start()
 
 argparser = argparse.ArgumentParser(usage=usage())
+
+argparser.add_argument("-v", "--verbose", default=VERBOSE, action="store_true", help="verbose")
 argparser.add_argument("-p", "--port", type=int, default=PORT, help="SSH Server port")
 argparser.add_argument("-n", "--name", type=str, default=SERVER_NAME, help="Server name")
 argparser.add_argument("-r", "--rsafile", type=str, default=RSA_PATH, help="RSA file")
@@ -240,14 +244,19 @@ PORT = args.port
 SERVER_NAME = args.name
 RSA_PATH = args.rsafile
 USER_CFG_PATH = args.data
+VERBOSE = args.verbose
 
 host_key = paramiko.RSAKey.from_private_key_file(filename=RSA_PATH)
+
 if os.path.exists(USER_CFG_PATH):
     with open(USER_CFG_PATH, "rb") as file:
         USER_CFG = pickle.load(file)
 else:
     USER_CFG = {}
 
+logging.basicConfig(level=logging.INFO if VERBOSE else logging.WARNING)
+logger = logging.getLogger()
+logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 
-print(f"Starting chatroom {SERVER_NAME}!")
 run_chatroom()
+

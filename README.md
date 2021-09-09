@@ -18,7 +18,8 @@ To generate such a key, you could (for example) use OpenSSL:
 ```openssl genrsa -out rsa.private 1024```
 
 ### Running the server
-I recommend having a quick look at the options: `./sshchat.py -h`
+I recommend having a quick look at the options: `./sshchat.py -h`. The verbose option can also be useful for basic troubleshooting.
+
 To run, simply execute `sshchat.py`.
 
 Now users can connect to it over SSH (standard port is 2222). When logging in for the first time, they must enter a password, which they must use if they wish to login with the same username again. Passwords are reset each runtime.
