@@ -193,15 +193,22 @@ def init_user(ca_pair):
 
     transport = paramiko.Transport(client)
     transport.add_server_key(host_key)
+
     server = ChatRoomServ()
     try:
         transport.start_server(server=server)
     except Exception as ex:
         logger.log(logging.INFO, f"SSH negotiation failed for {addr[0]} failed. ({ex})")
         return
+
     chan = transport.accept()
     if not chan:
         logger.log(logging.INFO, f"No channel for {addr[0]}.")
+        return
+
+    server.event.wait(10)
+    if not server.event.is_set():
+        logger.log(logging.INFO, f"{addr[0]} never asked for a shell")
         return
 
     # evil and bad, but it works
