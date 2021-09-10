@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import logging
 import socket
-import sys
 import threading
 import random
 import hashlib
@@ -24,6 +23,8 @@ COLORS = [
 
 COLOR_RESET = "\u001b[0m"
 
+chans = []
+
 # DEFAULT CONFIG
 
 USER_CFG_PATH = "usercfg.data"
@@ -34,11 +35,20 @@ VERBOSE = False
 
 # CFG END
 
+CHATHELPMSG = ("\r\n[HELP]\r\n"
+               "/help to call this help\r\n/"
+               "exit to exit\r\n/"
+               "msg [username] [msg] to privatly message with a specified user\r\n"
+               "/status to view a quick status"
+               "\r\n/passwd <new password> to set your password\r\n"
+              )
+
 def usage():
     return (
            "Py. SSHChat HELP\r\n\r\n"
            "INFO:\r\n"
-           "\tSSHChat allows for hosting chatrooms which are accessible over SSH.\r\n\tIt is written completely in Python 3.\r\n"
+           "\tSSHChat allows for hosting chatrooms which are accessible over SSH.\r\n"
+           "\tIt is written completely in Python 3.\r\n"
            )
 
 class ChatRoomServ(paramiko.ServerInterface):
@@ -56,8 +66,8 @@ class ChatRoomServ(paramiko.ServerInterface):
             USER_CFG[username] = [hashlib.sha256(password.encode()).digest(), random.choice(COLORS)]
 
             # store data
-            with open(USER_CFG_PATH, "wb") as file:
-                 pickle.dump(USER_CFG, file)
+            with open(USER_CFG_PATH, "wb") as picklefile:
+                pickle.dump(USER_CFG, picklefile)
 
             return paramiko.AUTH_SUCCESSFUL
 
@@ -73,14 +83,13 @@ class ChatRoomServ(paramiko.ServerInterface):
         self.event.set()
         return True
 
-    def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
+    def check_channel_pty_request(self, *_): # yeah i don t care, just do it
         return True
 
 class UserClass:
-    def __init__(self):
-        self.msg = ""
-        self.username = "???"
-        self.usernamecolor = username
+    msg = ""
+    username = "???"
+    usernamecolor = username
 
 def build_status(userchan):
     return (f"\r\n[CHATROOM STATUS]\r\n"
@@ -128,9 +137,8 @@ def handle_user_input(chan):
 
                 # set cursor to 0, 0 and clear line
                 chan.send("\033[0;0f\033[K")
-                if transport == b"\x7f":
-                    if len(chan.usersc.msg):
-                        chan.usersc.msg = chan.usersc.msg[:-1]
+                if transport == b"\x7f" and len(chan.usersc.msg):
+                    chan.usersc.msg = chan.usersc.msg[:-1]
                 elif transport == b"\x04":
                     # interpret ctrl-d (EOF) as exit
                     chan.usersc.msg = "/exit"
@@ -149,30 +157,27 @@ def handle_user_input(chan):
             if msg.startswith("/exit"):
                 break
 
-            elif msg.startswith("/msg"):
-                # check for correct usage
-                if len(msg.split(" "))<3:
-                    continue
-
-                target = msg.split(" ")[1]
-                tmsg   = " ".join(msg.split(" ")[2:])
-                send_global(usercolor=chan.usersc.usernamecolor, target=[target, chan.usersc.username], msg=tmsg)
+            if msg.startswith("/msg") and msg.split()>3:
+                target = msg.split()[1]
+                tmsg   = " ".join(msg.split()[2:])
+                send_global(usercolor=chan.usersc.usernamecolor,
+                            target=[target, chan.usersc.username], msg=tmsg)
 
             elif msg.startswith("/status"):
                 send_global(msg=build_status(chan), target=[chan.usersc.username], context="PLAIN")
 
             elif msg.startswith("/passwd"):
-                new_passwd = "" if len(msg.split(" "))<2 else " ".join(msg.split(" ")[1:])
+                new_passwd = "" if len(msg.split())<2 else " ".join(msg.split()[1:])
                 USER_CFG[chan.usersc.username][0] = hashlib.sha256(new_passwd.encode()).digest()
 
                  # store data
-                with open(USER_CFG_PATH, "wb") as file:
-                     pickle.dump(USER_CFG, file)
-                send_global(msg="\r\n[PASSWD]\r\nYour password has been set.\r\n", target=[chan.usersc.username], context="PLAIN")
+                with open(USER_CFG_PATH, "wb") as picklefile:
+                    pickle.dump(USER_CFG, picklefile)
+                send_global(msg="\r\n[PASSWD]\r\nYour password has been set.\r\n",
+                            target=[chan.usersc.username], context="PLAIN")
 
             elif msg.startswith("/"):
-                send_global(msg="\r\n[HELP]\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status\
-\r\n/passwd <new password> to set your password\r\n", target=[chan.usersc.username], context="PLAIN")
+                send_global(msg=CHATHELPMSG, target=[chan.usersc.username], context="PLAIN")
 
             elif msg:
                 send_global(msg=msg, usercolor=chan.usersc.usernamecolor)
@@ -189,8 +194,8 @@ def close_channel(chan):
 
         # clear, and set cursor to 0,0
         chan.send("\033[2J\033[0;0f")
-    except:
-        pass
+    except Exception as ex:
+        logger.log(logging.INFO, f"Error during closing of channel. ({ex})")
     chan.close()
 
 
@@ -226,23 +231,22 @@ def init_user(ca_pair):
     logger.log(logging.INFO, f"User login: {chan.usersc.username}")
 
     # clear, and set cursor to 2,0 and store position, before sending welcome msg
-    chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!{build_status(chan)}\033[s")
+    chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n"
+              f"Try typing /help!{build_status(chan)}\033[s"
+             )
     send_global(context="JOIN", usercolor=chan.usersc.usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
 
 
 def run_chatroom():
-    global chans
-    chans = []
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('', PORT))
 
     while True:
         sock.listen(128)
-        ca = sock.accept()
-        threading.Thread(target=init_user, args=(ca,)).start()
+        sockaddr = sock.accept()
+        threading.Thread(target=init_user, args=(sockaddr,)).start()
 
 argparser = argparse.ArgumentParser(usage=usage())
 
@@ -273,4 +277,3 @@ logger = logging.getLogger()
 logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 
 run_chatroom()
-
