@@ -20,4 +20,4 @@ jobs:
         pip install pylint
     - name: Analyze the code with pylint
       run: |
-        pylint `ls -R|grep .py$|xargs` --exit-zero
+        pylint `ls -R|grep .py$|xargs` --exit-zero -d W1203,C0114,C0115,C0116,W0703,R0903
