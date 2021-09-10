@@ -76,18 +76,24 @@ class ChatRoomServ(paramiko.ServerInterface):
     def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
         return True
 
+class UserClass:
+    def __init__(self):
+        self.msg = ""
+        self.username = "???"
+        self.usernamecolor = username
+
 def build_status(userchan):
     return (f"\r\n[CHATROOM STATUS]\r\n"
-              f"Server name: {SERVER_NAME}\r\n"
-              f"Currently {len(chans)} user(s) online.\r\n"
-              f"Your username: [{userchan._usernamecolor}]\r\n"
-             )
+            f"Server name: {SERVER_NAME}\r\n"
+            f"Currently {len(chans)} user(s) online.\r\n"
+            f"Your username: [{userchan.usersc.usernamecolor}]\r\n"
+           )
 
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
     for chan in chans.copy():
         try:
             # check if user is targeted
-            if target and chan._username not in target:
+            if target and chan.usersc.username not in target:
                 continue
 
             # reset cursor, and send time string
@@ -108,35 +114,36 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
                 chan.send(msg)
 
             # store new cursor position, and then set it back to the top line
-            chan.send(f"\033[s\033[0;0f\033[K{chan._msg}")
-        except:
+            chan.send(f"\033[s\033[0;0f\033[K{chan.usersc.msg}")
+        except Exception as ex:
+            logger.log(logging.INFO, ex)
             close_channel(chan)
 
 def handle_user_input(chan):
     try:
         while True:
-            chan._msg = ""
-            while not chan._msg.endswith("\r"):
+            chan.usersc.msg = ""
+            while not chan.usersc.msg.endswith("\r"):
                 transport = chan.recv(1024)
 
                 # set cursor to 0, 0 and clear line
                 chan.send("\033[0;0f\033[K")
                 if transport == b"\x7f":
-                    if len(chan._msg):
-                        chan._msg = chan._msg[:-1]
+                    if len(chan.usersc.msg):
+                        chan.usersc.msg = chan.usersc.msg[:-1]
                 elif transport == b"\x04":
                     # interpret ctrl-d (EOF) as exit
-                    chan._msg = "/exit"
+                    chan.usersc.msg = "/exit"
                     break
                 else:
-                    chan._msg += transport.decode("utf-8")
+                    chan.usersc.msg += transport.decode("utf-8")
 
                 # send whole text, rotated for max 60 characters
-                chan.send(chan._msg[-60:])
+                chan.send(chan.usersc.msg[-60:])
 
             chan.send("\033[0;0f\033[K")
-            msg = chan._msg.strip()
-            chan._msg = ""
+            msg = chan.usersc.msg.strip()
+            chan.usersc.msg = ""
 
             # USER / COMMANDS
             if msg.startswith("/exit"):
@@ -149,37 +156,37 @@ def handle_user_input(chan):
 
                 target = msg.split(" ")[1]
                 tmsg   = " ".join(msg.split(" ")[2:])
-                send_global(usercolor=chan._usernamecolor, target=[target, chan._username], msg=tmsg)
+                send_global(usercolor=chan.usersc.usernamecolor, target=[target, chan.usersc.username], msg=tmsg)
 
             elif msg.startswith("/status"):
-                send_global(msg=build_status(chan), target=[chan._username], context="PLAIN")
+                send_global(msg=build_status(chan), target=[chan.usersc.username], context="PLAIN")
 
             elif msg.startswith("/passwd"):
                 new_passwd = "" if len(msg.split(" "))<2 else " ".join(msg.split(" ")[1:])
-                USER_CFG[chan._username][0] = hashlib.sha256(new_passwd.encode()).digest()
+                USER_CFG[chan.usersc.username][0] = hashlib.sha256(new_passwd.encode()).digest()
 
                  # store data
                 with open(USER_CFG_PATH, "wb") as file:
                      pickle.dump(USER_CFG, file)
-                send_global(msg="\r\n[PASSWD]\r\nYour password has been set.\r\n", target=[chan._username], context="PLAIN")
+                send_global(msg="\r\n[PASSWD]\r\nYour password has been set.\r\n", target=[chan.usersc.username], context="PLAIN")
 
             elif msg.startswith("/"):
                 send_global(msg="\r\n[HELP]\r\n/help to call this help\r\n/exit to exit\r\n/msg [username] [msg] to privatly message with a specified user\r\n/status to view a quick status\
-\r\n/passwd <new password> to set your password\r\n", target=[chan._username], context="PLAIN")
+\r\n/passwd <new password> to set your password\r\n", target=[chan.usersc.username], context="PLAIN")
 
             elif msg:
-                send_global(msg=msg, usercolor=chan._usernamecolor)
+                send_global(msg=msg, usercolor=chan.usersc.usernamecolor)
     except Exception as ex:
         logger.log(logging.INFO, ex)
     close_channel(chan)
 
 def close_channel(chan):
     # send EXIT message to everyone, excluding exiter
-    chans.remove(chan)
-    send_global(context="EXIT", usercolor=chan._usernamecolor)
-    logger.log(logging.INFO, f"{chan._username} has left")
-
     try:
+        chans.remove(chan)
+        send_global(context="EXIT", usercolor=chan.usersc.usernamecolor)
+        logger.log(logging.INFO, f"{chan.usersc.username} has left")
+
         # clear, and set cursor to 0,0
         chan.send("\033[2J\033[0;0f")
     except:
@@ -212,15 +219,15 @@ def init_user(ca_pair):
         return
 
     # evil and bad, but it works
-    chan._msg = ""
-    chan._username = transport.get_username()
-    chan._usernamecolor = USER_CFG[chan._username][1]+chan._username+COLOR_RESET
+    chan.usersc = UserClass()
+    chan.usersc.username = transport.get_username()
+    chan.usersc.usernamecolor = USER_CFG[chan.usersc.username][1]+chan.usersc.username+COLOR_RESET
     chans.append(chan)
-    logger.log(logging.INFO, f"User login: {chan._username}")
+    logger.log(logging.INFO, f"User login: {chan.usersc.username}")
 
     # clear, and set cursor to 2,0 and store position, before sending welcome msg
     chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!{build_status(chan)}\033[s")
-    send_global(context="JOIN", usercolor=chan._usernamecolor)
+    send_global(context="JOIN", usercolor=chan.usersc.usernamecolor)
     threading.Thread(target=handle_user_input, args=(chan,)).start()
 
 
