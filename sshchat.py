@@ -29,6 +29,7 @@ chans = []
 
 USER_CFG_PATH = "usercfg.data"
 RSA_PATH = "rsa.private"
+BIND_IP = ""
 PORT = 2222
 SERVER_NAME = "PROUTROOM"
 VERBOSE = False
@@ -241,7 +242,7 @@ def init_user(ca_pair):
 def run_chatroom():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(('', PORT))
+    sock.bind((BIND_IP, PORT))
 
     while True:
         sock.listen(128)
@@ -251,6 +252,7 @@ def run_chatroom():
 argparser = argparse.ArgumentParser(usage=usage())
 
 argparser.add_argument("-v", "--verbose", default=VERBOSE, action="store_true", help="verbose")
+argparser.add_argument("-b", "--bindip", default=BIND_IP, help="Binding IP")
 argparser.add_argument("-p", "--port", type=int, default=PORT, help="SSH Server port")
 argparser.add_argument("-n", "--name", type=str, default=SERVER_NAME, help="Server name")
 argparser.add_argument("-r", "--rsafile", type=str, default=RSA_PATH, help="RSA file")
@@ -258,6 +260,7 @@ argparser.add_argument("-d", "--data", type=str, default=USER_CFG_PATH, help="Pi
 
 args = argparser.parse_args()
 
+BIND_IP = args.bindip
 PORT = args.port
 SERVER_NAME = args.name
 RSA_PATH = args.rsafile
