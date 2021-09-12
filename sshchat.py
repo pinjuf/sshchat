@@ -7,6 +7,7 @@ import hashlib
 import argparse
 import pickle
 import os
+import sys
 from datetime import datetime
 
 import paramiko
@@ -145,7 +146,7 @@ def handle_user_input(chan):
                     chan.usersc.msg = "/exit"
                     break
                 else:
-                    chan.usersc.msg += transport.decode("utf-8")
+                    chan.usersc.msg += transport.decode("utf-8", errors="replace")
 
                 # send whole text, rotated for max 60 characters
                 chan.send(chan.usersc.msg[-60:])
@@ -246,7 +247,10 @@ def run_chatroom():
 
     while True:
         sock.listen(128)
-        sockaddr = sock.accept()
+        try:
+            sockaddr = sock.accept()
+        except KeyboardInterrupt:
+            sys.exit(0)
         threading.Thread(target=init_user, args=(sockaddr,)).start()
 
 argparser = argparse.ArgumentParser(usage=usage())
