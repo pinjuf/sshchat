@@ -283,4 +283,10 @@ logging.basicConfig(level=logging.INFO if VERBOSE else logging.WARNING)
 logger = logging.getLogger()
 logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 
-run_chatroom()
+threading.Thread(target=run_chatroom()).start()
+
+while True:
+    try:
+        pass
+    except KeyboardInterrupt:
+        sys.exit(0)
