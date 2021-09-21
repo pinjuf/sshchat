@@ -13,7 +13,7 @@ Install the requirements:
 The code requires an RSA private key, named `rsa.private`.
 > The filename can be easily changed using command line options or the config part of the code!
 
-To generate such a key, you could (for example) use OpenSSL:
+A demo key is included. To generate such a key, you could (for example) use OpenSSL:
 
 ```openssl genrsa -out rsa.private 1024```
 
