@@ -22,7 +22,7 @@ I recommend having a quick look at the options: `./sshchat.py -h`. The verbose o
 
 To run, simply execute `sshchat.py`.
 
-Now users can connect to it over SSH (standard port is 2222). When logging in for the first time, they must enter a password, which they must use if they wish to login with the same username again. Passwords are reset each runtime.
+Now users can connect to it over SSH (standard port is 2222). When logging in for the first time, they must enter a password, which they must use if they wish to login with the same username again. Passwords are stored in a pickle file.
 > Note that an interactive SSH session is necesarry.
 
 User can now send messages by typing text and using backspace to correct mistakes.
