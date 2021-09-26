@@ -159,7 +159,7 @@ def handle_user_input(chan):
             if msg.startswith("/exit"):
                 break
 
-            if msg.startswith("/msg") and len(msg.split())>3:
+            if msg.startswith("/msg") and len(msg.split())>=3:
                 target = msg.split()[1]
                 tmsg   = " ".join(msg.split()[2:])
                 send_global(usercolor=chan.usersc.usernamecolor,
