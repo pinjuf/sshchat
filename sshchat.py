@@ -101,6 +101,8 @@ def build_status(userchan):
            )
 
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
+    if target:
+        target = list(dict.fromkeys(target))
     for chan in chans.copy():
         try:
             # check if user is targeted
@@ -156,19 +158,19 @@ def handle_user_input(chan):
             chan.usersc.msg = ""
 
             # USER / COMMANDS
-            if msg.startswith("/exit"):
+            if msg.startswith("/exit "):
                 break
 
-            if msg.startswith("/msg") and len(msg.split())>=3:
+            if msg.startswith("/msg ") and len(msg.split())>=3:
                 target = msg.split()[1]
                 tmsg   = " ".join(msg.split()[2:])
                 send_global(usercolor=chan.usersc.usernamecolor,
                             target=[target, chan.usersc.username], msg=tmsg)
 
-            elif msg.startswith("/status"):
+            elif msg.startswith("/status "):
                 send_global(msg=build_status(chan), target=[chan.usersc.username], context="PLAIN")
 
-            elif msg.startswith("/passwd"):
+            elif msg.startswith("/passwd "):
                 new_passwd = "" if len(msg.split())<2 else " ".join(msg.split()[1:])
                 USER_CFG[chan.usersc.username][0] = hashlib.sha256(new_passwd.encode()).digest()
 
