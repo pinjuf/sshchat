@@ -39,8 +39,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: "v${{ steps.current-time.outputs.formattedTime }}"
-        release_name: "Release ${{ steps.current-time.outputs.readableTime }}"
+        tag_name: "build-${{ steps.current-time.outputs.formattedTime }}"
+        release_name: "Build from ${{ steps.current-time.outputs.readableTime }}"
         draft: false
         prerelease: false
         
