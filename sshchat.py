@@ -244,13 +244,17 @@ def init_user(ca_pair):
 
 def run_chatroom():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setblocking(False)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((BIND_IP, PORT))
     sock.listen(128)
 
     while True:
-        ca_pair = sock.accept()
-        threading.Thread(target=init_user, args=(ca_pair,)).start()
+        try:
+            ca_pair = sock.accept()
+            threading.Thread(target=init_user, args=(ca_pair,)).start()
+        except:
+            break
 
 argparser = argparse.ArgumentParser(usage=usage())
 
@@ -288,4 +292,7 @@ while True:
     try:
         pass
     except KeyboardInterrupt:
-        sys.exit(0)
+        logger.log(logging.INFO, f"Received KeyboardInterrupt, stopping!")
+        break
+
+sys.exit()
