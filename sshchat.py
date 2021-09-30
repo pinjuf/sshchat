@@ -246,11 +246,11 @@ def run_chatroom():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((BIND_IP, PORT))
+    sock.listen(128)
 
     while True:
-        sock.listen(128)
-        sockaddr = sock.accept()
-        threading.Thread(target=init_user, args=(sockaddr,)).start()
+        ca_pair = sock.accept()
+        threading.Thread(target=init_user, args=(ca_pair,)).start()
 
 argparser = argparse.ArgumentParser(usage=usage())
 
@@ -282,7 +282,7 @@ logging.basicConfig(level=logging.INFO if VERBOSE else logging.WARNING)
 logger = logging.getLogger()
 logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 
-threading.Thread(target=run_chatroom()).start()
+threading.Thread(target=run_chatroom).start()
 
 while True:
     try:
