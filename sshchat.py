@@ -97,110 +97,110 @@ def build_status(userchan):
     return (f"\r\n[CHATROOM STATUS]\r\n"
             f"Server name: {SERVER_NAME}\r\n"
             f"Currently {len(chans)} user(s) online.\r\n"
-            f"Your username: [{userchan.usersc.usernamecolor}]\r\n"
+            f"Your username: [{userchan.usernamecolor}]\r\n"
            )
 
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
     if target:
         target = list(dict.fromkeys(target))
-    for chan in chans.copy():
+    for usersc in chans.copy():
         try:
             # check if user is targeted
-            if target and chan.usersc.username not in target:
+            if target and usersc.username not in target:
                 continue
 
             # reset cursor, and send time string
-            chan.send("\033[u")
-            chan.send(datetime.now().strftime("(%H:%M) "))
+            usersc.chan.send("\033[u")
+            usersc.chan.send(datetime.now().strftime("(%H:%M) "))
 
             # send "private" string
             if target:
-                chan.send(f"*private (involves {', '.join(target)})* ")
+                usersc.chan.send(f"*private (involves {', '.join(target)})* ")
 
             if context=="MESSAGE":
-                chan.send(f"[{usercolor}] {msg}\r\n")
+                usersc.chan.send(f"[{usercolor}] {msg}\r\n")
             if context=="JOIN":
-                chan.send(f"{{LOG}} {usercolor} has joined!\r\n")
+                usersc.chan.send(f"{{LOG}} {usercolor} has joined!\r\n")
             if context=="EXIT":
-                chan.send(f"{{LOG}} {usercolor} has exited!\r\n")
+                usersc.chan.send(f"{{LOG}} {usercolor} has exited!\r\n")
             if context=="PLAIN":
-                chan.send(msg)
+                usersc.chan.send(msg)
 
             # store new cursor position, and then set it back to the top line
-            chan.send(f"\033[s\033[0;0f\033[K{chan.usersc.msg}")
+            usersc.chan.send(f"\033[s\033[0;0f\033[K{usersc.msg}")
         except Exception as ex:
             logger.log(logging.INFO, ex)
-            close_channel(chan)
+            close_channel(usersc)
 
-def handle_user_input(chan):
+def handle_user_input(usersc):
     try:
         while True:
-            chan.usersc.msg = ""
-            while not chan.usersc.msg.endswith("\r"):
-                transport = chan.recv(1024)
+            usersc.msg = ""
+            while not usersc.msg.endswith("\r"):
+                transport = usersc.chan.recv(1024)
 
                 # set cursor to 0, 0 and clear line
-                chan.send("\033[0;0f\033[K")
-                if transport == b"\x7f" and len(chan.usersc.msg):
-                    chan.usersc.msg = chan.usersc.msg[:-1]
+                usersc.chan.send("\033[0;0f\033[K")
+                if transport == b"\x7f" and len(usersc.msg):
+                    usersc.msg = usersc.msg[:-1]
                 elif transport == b"\x04":
                     # interpret ctrl-d (EOF) as exit
-                    chan.usersc.msg = "/exit"
+                    usersc.msg = "/exit"
                     break
                 else:
-                    chan.usersc.msg += transport.decode("utf-8", errors="replace")
+                    usersc.msg += transport.decode("utf-8", errors="replace")
 
                 # send whole text, rotated for max 60 characters
-                chan.send(chan.usersc.msg[-60:])
+                usersc.chan.send(usersc.msg[-60:])
 
-            chan.send("\033[0;0f\033[K")
-            msg = chan.usersc.msg.strip()
-            chan.usersc.msg = ""
+            usersc.chan.send("\033[0;0f\033[K")
+            msg = usersc.msg.strip()
+            usersc.msg = ""
 
             # USER / COMMANDS
-            if msg.startswith("/exit "):
+            if msg.startswith("/exit"):
                 break
 
-            if msg.startswith("/msg ") and len(msg.split())>=3:
+            if msg.startswith("/msg") and len(msg.split())>=3:
                 target = msg.split()[1]
                 tmsg   = " ".join(msg.split()[2:])
-                send_global(usercolor=chan.usersc.usernamecolor,
-                            target=[target, chan.usersc.username], msg=tmsg)
+                send_global(usercolor=usersc.usernamecolor,
+                            target=[target, usersc.username], msg=tmsg)
 
-            elif msg.startswith("/status "):
-                send_global(msg=build_status(chan), target=[chan.usersc.username], context="PLAIN")
+            elif msg.startswith("/status"):
+                send_global(msg=build_status(usersc), target=[usersc.username], context="PLAIN")
 
-            elif msg.startswith("/passwd "):
+            elif msg.startswith("/passwd"):
                 new_passwd = "" if len(msg.split())<2 else " ".join(msg.split()[1:])
-                USER_CFG[chan.usersc.username][0] = hashlib.sha256(new_passwd.encode()).digest()
+                USER_CFG[usersc.username][0] = hashlib.sha256(new_passwd.encode()).digest()
 
                  # store data
                 with open(USER_CFG_PATH, "wb") as picklefile:
                     pickle.dump(USER_CFG, picklefile)
                 send_global(msg="\r\n[PASSWD]\r\nYour password has been set.\r\n",
-                            target=[chan.usersc.username], context="PLAIN")
+                            target=[usersc.username], context="PLAIN")
 
             elif msg.startswith("/"):
-                send_global(msg=CHATHELPMSG, target=[chan.usersc.username], context="PLAIN")
+                send_global(msg=CHATHELPMSG, target=[usersc.username], context="PLAIN")
 
             elif msg:
-                send_global(msg=msg, usercolor=chan.usersc.usernamecolor)
+                send_global(msg=msg, usercolor=usersc.usernamecolor)
     except Exception as ex:
         logger.log(logging.INFO, ex)
-    close_channel(chan)
+    close_channel(usersc)
 
-def close_channel(chan):
+def close_channel(usersc):
     # send EXIT message to everyone, excluding exiter
     try:
-        chans.remove(chan)
-        send_global(context="EXIT", usercolor=chan.usersc.usernamecolor)
-        logger.log(logging.INFO, f"{chan.usersc.username} has left")
+        chans.remove(usersc)
+        send_global(context="EXIT", usercolor=usersc.usernamecolor)
+        logger.log(logging.INFO, f"{usersc.username} has left")
 
         # clear, and set cursor to 0,0
-        chan.send("\033[2J\033[0;0f")
+        usersc.chan.send("\033[2J\033[0;0f")
     except Exception as ex:
         logger.log(logging.INFO, f"Error during closing of channel. ({ex})")
-    chan.close()
+    usersc.chan.close()
 
 
 def init_user(ca_pair):
@@ -227,19 +227,19 @@ def init_user(ca_pair):
         logger.log(logging.INFO, f"{addr[0]} never asked for a shell")
         return
 
-    # evil and bad, but it works
-    chan.usersc = UserClass()
-    chan.usersc.username = transport.get_username()
-    chan.usersc.usernamecolor = USER_CFG[chan.usersc.username][1]+chan.usersc.username+COLOR_RESET
-    chans.append(chan)
-    logger.log(logging.INFO, f"User login: {chan.usersc.username}")
+    usersc = UserClass()
+    usersc.chan = chan
+    usersc.username = transport.get_username()
+    usersc.usernamecolor = USER_CFG[usersc.username][1]+usersc.username+COLOR_RESET
+    chans.append(usersc)
+    logger.log(logging.INFO, f"User login: {usersc.username}")
 
     # clear, and set cursor to 2,0 and store position, before sending welcome msg
-    chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n"
-              f"Try typing /help!{build_status(chan)}\033[s"
+    usersc.chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n"
+              f"Try typing /help!{build_status(usersc)}\033[s"
              )
-    send_global(context="JOIN", usercolor=chan.usersc.usernamecolor)
-    threading.Thread(target=handle_user_input, args=(chan,)).start()
+    send_global(context="JOIN", usercolor=usersc.usernamecolor)
+    threading.Thread(target=handle_user_input, args=(usersc,)).start()
 
 
 def run_chatroom():
@@ -249,10 +249,7 @@ def run_chatroom():
 
     while True:
         sock.listen(128)
-        try:
-            sockaddr = sock.accept()
-        except KeyboardInterrupt:
-            sys.exit(0)
+        sockaddr = sock.accept()
         threading.Thread(target=init_user, args=(sockaddr,)).start()
 
 argparser = argparse.ArgumentParser(usage=usage())
