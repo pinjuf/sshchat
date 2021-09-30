@@ -244,7 +244,6 @@ def init_user(ca_pair):
 
 def run_chatroom():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setblocking(False)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((BIND_IP, PORT))
     sock.listen(128)
