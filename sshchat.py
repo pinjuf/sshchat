@@ -40,7 +40,7 @@ VERBOSE = False
 CHATHELPMSG = ("\r\n[HELP]\r\n"
                "/help to call this help\r\n/"
                "exit to exit\r\n/"
-               "msg [username] [msg] to privatly message with a specified user\r\n"
+               "msg [username] [msg] to privatly message a specified user\r\n"
                "/status to view a quick status"
                "\r\n/passwd <new password> to set your password\r\n"
               )
@@ -254,7 +254,8 @@ def run_chatroom():
             ca_pair = sock.accept()
             threading.Thread(target=init_user, args=(ca_pair,)).start()
         except:
-            break
+            if stopped:
+                break
 
 argparser = argparse.ArgumentParser(usage=usage())
 
@@ -288,11 +289,13 @@ logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 
 threading.Thread(target=run_chatroom).start()
 
+stopped = False
 while True:
     try:
         pass
     except KeyboardInterrupt:
         logger.log(logging.INFO, f"Received KeyboardInterrupt, stopping!")
+        stopped = True
         break
 
 sys.exit()
