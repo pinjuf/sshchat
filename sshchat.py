@@ -28,11 +28,11 @@ chans = []
 
 # DEFAULT CONFIG
 
-USER_CFG_PATH = "usercfg.data"
-RSA_PATH = "rsa.private"
+USER_CFG_PATH = "data/usercfg.data"
+RSA_PATH = "cfg/rsa.private"
 BIND_IP = ""
 PORT = 2222
-SERVER_NAME = "PROUTROOM"
+SERVER_NAME = "ASDFroom"
 VERBOSE = False
 
 # CFG END
