@@ -28,8 +28,9 @@ chans = []
 
 # DEFAULT CONFIG
 
-USER_CFG_PATH = "data/usercfg.data"
-RSA_PATH = "cfg/rsa.private"
+USER_CFG_PATH = os.path.join("data", "usercfg.data")
+BLACKLIST_PATH = os.path.join("cfg", "blacklist.txt")
+RSA_PATH = os.path.join("cfg", "rsa.private")
 BIND_IP = ""
 PORT = 2222
 SERVER_NAME = "ASDFroom"
@@ -38,9 +39,10 @@ VERBOSE = False
 # CFG END
 
 CHATHELPMSG = ("\r\n[HELP]\r\n"
-               "/help to call this help\r\n/"
-               "exit to exit\r\n/"
-               "msg [username] [msg] to privatly message a specified user\r\n"
+               "/help to call this help\r\n"
+               "/clear clears your screen (e.g. if the host fucked up)\r\n"
+               "/exit to exit\r\n"
+               "/msg [username] [msg] to privatly message a specified user\r\n"
                "/status to view a quick status"
                "\r\n/passwd <new password> to set your password\r\n"
               )
@@ -101,6 +103,11 @@ def build_status(userchan):
            )
 
 def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
+    global is_sending_global
+    while is_sending_global: # wait for other sendings to finish
+        pass
+    is_sending_global = True
+
     if target:
         target = list(dict.fromkeys(target))
     for usersc in chans.copy():
@@ -132,6 +139,8 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
             logger.log(logging.INFO, ex)
             close_channel(usersc)
 
+    is_sending_global = False
+
 def handle_user_input(usersc):
     try:
         while True:
@@ -158,12 +167,19 @@ def handle_user_input(usersc):
             usersc.msg = ""
 
             # USER / COMMANDS
-            if msg.startswith("/exit"):
+            if msg.startswith("\""):
+                msg = msg[1:]
+                send_global(msg=msg, usercolor=usersc.usernamecolor)
+
+            elif msg.startswith("/exit"):
                 break
 
-            if msg.startswith("/msg") and len(msg.split())>=3:
+            elif msg.startswith("/clear"):
+                usersc.chan.send("\033[2J\033[2;0f\033[s\033[0;0f")
+
+            elif msg.startswith("/msg") and len(msg.split())>=3:
                 target = msg.split()[1]
-                tmsg   = " ".join(msg.split()[2:])
+                tmsg   = msg.split(maxsplit=2)[2] 
                 send_global(usercolor=usersc.usernamecolor,
                             target=[target, usersc.username], msg=tmsg)
 
@@ -239,7 +255,7 @@ def init_user(ca_pair):
               f"Try typing /help!{build_status(usersc)}\033[s"
              )
     send_global(context="JOIN", usercolor=usersc.usernamecolor)
-    threading.Thread(target=handle_user_input, args=(usersc,)).start()
+    handle_user_input(usersc)
 
 
 def run_chatroom():
@@ -251,9 +267,14 @@ def run_chatroom():
 
     while True:
         try:
-            ca_pair = sock.accept()
-            threading.Thread(target=init_user, args=(ca_pair,)).start()
-        except:
+            conn, addr = sock.accept()
+            if addr[0] in BLACKLIST:
+                conn.close()
+                logger.log(logging.INFO, f"Refused connection from {ca_pair[1][0]} (blacklist)")
+                continue
+
+            threading.Thread(target=init_user, args=((conn, addr),)).start()
+        except Exception as ex:
             if stopped:
                 break
 
@@ -264,6 +285,7 @@ argparser.add_argument("-b", "--bindip", default=BIND_IP, help="Binding IP")
 argparser.add_argument("-p", "--port", type=int, default=PORT, help="SSH Server port")
 argparser.add_argument("-n", "--name", type=str, default=SERVER_NAME, help="Server name")
 argparser.add_argument("-r", "--rsafile", type=str, default=RSA_PATH, help="RSA file")
+argparser.add_argument("-k", "--blacklist", type=str, default=BLACKLIST_PATH, help="IP Blacklist")
 argparser.add_argument("-d", "--data", type=str, default=USER_CFG_PATH, help="Pickle data file")
 
 args = argparser.parse_args()
@@ -274,6 +296,7 @@ SERVER_NAME = args.name
 RSA_PATH = args.rsafile
 USER_CFG_PATH = args.data
 VERBOSE = args.verbose
+BLACKLIST_PATH = args.blacklist
 
 host_key = paramiko.RSAKey.from_private_key_file(filename=RSA_PATH)
 
@@ -283,6 +306,12 @@ if os.path.exists(USER_CFG_PATH):
 else:
     USER_CFG = {}
 
+if os.path.exists(BLACKLIST_PATH):
+    with open(BLACKLIST_PATH, "r") as file:
+        BLACKLIST = [ip.strip() for ip in file.readlines()]
+else:
+    BLACKLIST = []
+
 logging.basicConfig(level=logging.INFO if VERBOSE else logging.WARNING)
 logger = logging.getLogger()
 logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
@@ -290,6 +319,8 @@ logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 threading.Thread(target=run_chatroom).start()
 
 stopped = False
+is_sending_global = False
+
 while True:
     try:
         pass
