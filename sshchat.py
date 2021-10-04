@@ -151,15 +151,18 @@ def handle_user_input(usersc):
         while True:
             usersc.msg = ""
             usersc.cursorpos = 0
-            while not "\r" in usersc.msg or "\n" in usersc.msg:
+            while True:
                 transport = usersc.chan.recv(1024)
-
                 # set cursor to 0, 0 and clear line
                 usersc.chan.send("\033[0;0f\033[K")
                 if transport == b"\x7f":
                     if usersc.cursorpos:
                         usersc.msg = usersc.msg[:usersc.cursorpos-1] + usersc.msg[usersc.cursorpos:]
                         usersc.cursorpos -= 1
+
+                elif transport in [b"\r", b"\n", b"\r\n"]:
+                    usersc.msg += transport.decode("utf-8", errors="replace")
+                    break
 
                 elif transport == b"\033[D":
                     if usersc.cursorpos:
