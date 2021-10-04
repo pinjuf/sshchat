@@ -13,16 +13,16 @@ from datetime import datetime
 import paramiko
 
 COLORS = [
-    "\u001b[31m",
-    "\u001b[32m",
-    "\u001b[33m",
-    "\u001b[34m",
-    "\u001b[35m",
-    "\u001b[36m",
-    "\u001b[37m",
+    "\033[31m",
+    "\033[32m",
+    "\033[33m",
+    "\033[34m",
+    "\033[35m",
+    "\033[36m",
+    "\033[37m",
     ]
 
-COLOR_RESET = "\u001b[0m"
+COLOR_RESET = "\033[0m"
 
 chans = []
 
@@ -54,6 +54,9 @@ def usage():
            "\tSSHChat allows for hosting chatrooms which are accessible over SSH.\r\n"
            "\tIt is written completely in Python 3.\r\n"
            )
+
+def insertat(string, char, i):
+    return string[:i] + char + string[i:]
 
 class ChatRoomServ(paramiko.ServerInterface):
     def __init__(self):
@@ -94,6 +97,8 @@ class UserClass:
     msg = ""
     username = "???"
     usernamecolor = username
+    chan = None
+    cursorpos = 0
 
 def build_status(userchan):
     return (f"\r\n[CHATROOM STATUS]\r\n"
@@ -145,22 +150,36 @@ def handle_user_input(usersc):
     try:
         while True:
             usersc.msg = ""
+            usersc.cursorpos = 0
             while not usersc.msg.endswith("\r"):
                 transport = usersc.chan.recv(1024)
 
                 # set cursor to 0, 0 and clear line
                 usersc.chan.send("\033[0;0f\033[K")
-                if transport == b"\x7f" and len(usersc.msg):
-                    usersc.msg = usersc.msg[:-1]
+                if transport == b"\x7f":
+                    if usersc.cursorpos:
+                        usersc.msg = usersc.msg[:usersc.cursorpos-1] + usersc.msg[usersc.cursorpos:]
+                        usersc.cursorpos -= 1
+
+                elif transport == b"\033[D":
+                    if usersc.cursorpos:
+                        usersc.cursorpos -=1
+                elif transport == b"\033[C":
+                    if usersc.cursorpos < len(usersc.msg):
+                        usersc.cursorpos +=1
+
                 elif transport == b"\x04":
                     # interpret ctrl-d (EOF) as exit
                     usersc.msg = "/exit"
                     break
                 else:
-                    usersc.msg += transport.decode("utf-8", errors="replace")
+                    usersc.msg = insertat(usersc.msg,
+                                          transport.decode("utf-8", errors="replace"),
+                                          usersc.cursorpos)
+                    usersc.cursorpos += 1
 
                 # send whole text, rotated for max 60 characters
-                usersc.chan.send(usersc.msg[-60:])
+                usersc.chan.send(usersc.msg[-60:] + f"\033[0;{usersc.cursorpos+1}f")
 
             usersc.chan.send("\033[0;0f\033[K")
             msg = usersc.msg.strip()
