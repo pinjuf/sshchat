@@ -151,7 +151,7 @@ def handle_user_input(usersc):
         while True:
             usersc.msg = ""
             usersc.cursorpos = 0
-            while not usersc.msg.endswith("\r"):
+            while not "\r" in usersc.msg or "\n" in usersc.msg:
                 transport = usersc.chan.recv(1024)
 
                 # set cursor to 0, 0 and clear line
@@ -220,6 +220,7 @@ def handle_user_input(usersc):
 
             elif msg:
                 send_global(msg=msg, usercolor=usersc.usernamecolor)
+
     except Exception as ex:
         logger.log(logging.INFO, ex)
     close_channel(usersc)
