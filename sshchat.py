@@ -13,16 +13,16 @@ from datetime import datetime
 import paramiko
 
 COLORS = [
-    "\033[31m",
-    "\033[32m",
-    "\033[33m",
-    "\033[34m",
-    "\033[35m",
-    "\033[36m",
-    "\033[37m",
+    "\x1b[31m",
+    "\x1b[32m",
+    "\x1b[33m",
+    "\x1b[34m",
+    "\x1b[35m",
+    "\x1b[36m",
+    "\x1b[37m",
     ]
 
-COLOR_RESET = "\033[0m"
+COLOR_RESET = "\x1b[0m"
 
 chans = []
 
@@ -122,7 +122,7 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
                 continue
 
             # reset cursor, and send time string
-            usersc.chan.send("\033[u")
+            usersc.chan.send("\x1b[u")
             usersc.chan.send(datetime.now().strftime("(%H:%M) "))
 
             # send "private" string
@@ -139,7 +139,7 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
                 usersc.chan.send(msg)
 
             # store new cursor position, and then set it back to the top line
-            usersc.chan.send(f"\033[s\033[0;0f\033[K{usersc.msg}")
+            usersc.chan.send(f"\x1b[s\x1b[0;0f\x1b[K{usersc.msg}")
         except Exception as ex:
             logger.log(logging.INFO, ex)
             close_channel(usersc)
@@ -154,7 +154,6 @@ def handle_user_input(usersc):
             while True:
                 transport = usersc.chan.recv(1024)
                 # set cursor to 0, 0 and clear line
-                usersc.chan.send("\033[0;0f\033[K")
                 if transport == b"\x7f":
                     if usersc.cursorpos:
                         usersc.msg = usersc.msg[:usersc.cursorpos-1] + usersc.msg[usersc.cursorpos:]
@@ -164,10 +163,10 @@ def handle_user_input(usersc):
                     usersc.msg += transport.decode("utf-8", errors="replace")
                     break
 
-                elif transport == b"\033[D":
+                elif transport == b"\x1b[D":
                     if usersc.cursorpos:
-                        usersc.cursorpos -=1
-                elif transport == b"\033[C":
+                        usersc.cursorpos -= 1
+                elif transport == b"\x1b[C":
                     if usersc.cursorpos < len(usersc.msg):
                         usersc.cursorpos +=1
 
@@ -182,9 +181,12 @@ def handle_user_input(usersc):
                     usersc.cursorpos += 1
 
                 # send whole text, rotated for max 60 characters
-                usersc.chan.send(usersc.msg[-60:] + f"\033[0;{usersc.cursorpos+1}f")
-
-            usersc.chan.send("\033[0;0f\033[K")
+                if usersc.cursorpos+1 == len(usersc.msg):
+                    usersc.chan.send(transport)
+                else:
+                    usersc.chan.send(f"\x1b[0;0f\x1b[K{usersc.msg[-60:]}\x1b[0;{usersc.cursorpos+1}f")
+                
+            usersc.chan.send("\x1b[0;0f\x1b[K")
             msg = usersc.msg.strip()
             usersc.msg = ""
 
@@ -197,7 +199,7 @@ def handle_user_input(usersc):
                 break
 
             elif msg.startswith("/clear"):
-                usersc.chan.send("\033[2J\033[2;0f\033[s\033[0;0f")
+                usersc.chan.send("\x1b[2J\x1b[2;0f\x1b[s\x1b[0;0f")
 
             elif msg.startswith("/msg") and len(msg.split())>=3:
                 target = msg.split()[1]
@@ -236,7 +238,7 @@ def close_channel(usersc):
         logger.log(logging.INFO, f"{usersc.username} has left")
 
         # clear, and set cursor to 0,0
-        usersc.chan.send("\033[2J\033[0;0f")
+        usersc.chan.send("\x1b[2J\x1b[0;0f")
     except Exception as ex:
         logger.log(logging.INFO, f"Error during closing of channel. ({ex})")
     usersc.chan.close()
@@ -274,8 +276,8 @@ def init_user(ca_pair):
     logger.log(logging.INFO, f"User login: {usersc.username}")
 
     # clear, and set cursor to 2,0 and store position, before sending welcome msg
-    usersc.chan.send(f"\033[2J\033[2;0fWelcome to {SERVER_NAME}!\r\n"
-              f"Try typing /help!{build_status(usersc)}\033[s"
+    usersc.chan.send(f"\x1b[2J\x1b[2;0fWelcome to {SERVER_NAME}!\r\n"
+              f"Try typing /help!{build_status(usersc)}\x1b[s"
              )
     send_global(context="JOIN", usercolor=usersc.usernamecolor)
     handle_user_input(usersc)
