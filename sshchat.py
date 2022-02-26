@@ -7,7 +7,6 @@ import hashlib
 import argparse
 import pickle
 import os
-import sys
 from datetime import datetime
 
 import paramiko
@@ -25,6 +24,7 @@ COLORS = [
 COLOR_RESET = "\x1b[0m"
 
 chans = []
+is_sending_global = False
 
 # DEFAULT CONFIG
 
@@ -185,7 +185,7 @@ def handle_user_input(usersc):
                     usersc.chan.send(transport)
                 else:
                     usersc.chan.send(f"\x1b[0;0f\x1b[K{usersc.msg[-60:]}\x1b[0;{usersc.cursorpos+1}f")
-                
+
             usersc.chan.send("\x1b[0;0f\x1b[K")
             msg = usersc.msg.strip()
             usersc.msg = ""
@@ -203,7 +203,7 @@ def handle_user_input(usersc):
 
             elif msg.startswith("/msg") and len(msg.split())>=3:
                 target = msg.split()[1]
-                tmsg   = msg.split(maxsplit=2)[2] 
+                tmsg   = msg.split(maxsplit=2)[2]
                 send_global(usercolor=usersc.usernamecolor,
                             target=[target, usersc.username], msg=tmsg)
 
@@ -284,6 +284,7 @@ def init_user(ca_pair):
 
 
 def run_chatroom():
+    logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(3)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -295,13 +296,12 @@ def run_chatroom():
             conn, addr = sock.accept()
             if addr[0] in BLACKLIST:
                 conn.close()
-                logger.log(logging.INFO, f"Refused connection from {ca_pair[1][0]} (blacklist)")
+                logger.log(logging.INFO, f"Refused connection from {addr[0]} (blacklist)")
                 continue
 
             threading.Thread(target=init_user, args=((conn, addr),)).start()
-        except Exception as ex:
-            if stopped:
-                break
+        except KeyboardInterrupt:
+            exit()
 
 argparser = argparse.ArgumentParser(usage=usage())
 
@@ -339,19 +339,6 @@ else:
 
 logging.basicConfig(level=logging.INFO if VERBOSE else logging.WARNING)
 logger = logging.getLogger()
-logger.log(logging.INFO, f"Starting chatroom {SERVER_NAME} on port {PORT}!")
 
-threading.Thread(target=run_chatroom).start()
-
-stopped = False
-is_sending_global = False
-
-while True:
-    try:
-        pass
-    except KeyboardInterrupt:
-        logger.log(logging.INFO, f"Received KeyboardInterrupt, stopping!")
-        stopped = True
-        break
-
-sys.exit()
+if __name__=="__main__":
+    run_chatroom()
