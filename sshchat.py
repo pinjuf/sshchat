@@ -302,6 +302,8 @@ def run_chatroom():
             threading.Thread(target=init_user, args=((conn, addr),)).start()
         except KeyboardInterrupt:
             exit()
+        except TimeoutError:
+            continue
 
 argparser = argparse.ArgumentParser(usage=usage())
 
