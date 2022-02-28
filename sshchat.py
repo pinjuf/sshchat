@@ -38,7 +38,8 @@ VERBOSE = False
 
 # CFG END
 
-CHATHELPMSG = ("\r\n[HELP]\r\n"
+CHATHELPMSG = (
+               "\r\n[HELP]\r\n"
                "/help to call this help\r\n"
                "/clear clears your screen (e.g. if the host fucked up)\r\n"
                "/exit to exit\r\n"
@@ -153,27 +154,34 @@ def handle_user_input(usersc):
             usersc.cursorpos = 0
             while True:
                 transport = usersc.chan.recv(1024)
-                # set cursor to 0, 0 and clear line
+
+                # backspace
                 if transport == b"\x7f":
                     if usersc.cursorpos:
                         usersc.msg = usersc.msg[:usersc.cursorpos-1] + usersc.msg[usersc.cursorpos:]
                         usersc.cursorpos -= 1
 
+                # newline
                 elif transport in [b"\r", b"\n", b"\r\n"]:
                     usersc.msg += transport.decode("utf-8", errors="replace")
                     break
 
+                # left arrow
                 elif transport == b"\x1b[D":
                     if usersc.cursorpos:
                         usersc.cursorpos -= 1
+                # right arrow
                 elif transport == b"\x1b[C":
                     if usersc.cursorpos < len(usersc.msg):
                         usersc.cursorpos +=1
 
+                # ctrl-D
                 elif transport == b"\x04":
                     # interpret ctrl-d (EOF) as exit
                     usersc.msg = "/exit"
                     break
+
+                # generic character
                 else:
                     usersc.msg = insertat(usersc.msg,
                                           transport.decode("utf-8", errors="replace"),
@@ -186,6 +194,7 @@ def handle_user_input(usersc):
                 else:
                     usersc.chan.send(f"\x1b[0;0f\x1b[K{usersc.msg[-60:]}\x1b[0;{usersc.cursorpos+1}f")
 
+            # set cursor to 0, 0 and clear line
             usersc.chan.send("\x1b[0;0f\x1b[K")
             msg = usersc.msg.strip()
             usersc.msg = ""
