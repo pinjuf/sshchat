@@ -134,13 +134,13 @@ def handle_user_input(usersc):
                 transport = usersc.chan.recv(1024)
 
                 # backspace
-                if transport == b"\x7f":
+                if transport in (b"\x7f", b"\x08"):
                     if usersc.cursorpos:
                         usersc.msg = usersc.msg[:usersc.cursorpos-1] + usersc.msg[usersc.cursorpos:]
                         usersc.cursorpos -= 1
 
                 # newline
-                elif transport in [b"\r", b"\n", b"\r\n"]:
+                elif transport in (b"\r", b"\n", b"\r\n"):
                     usersc.msg += transport.decode("utf-8", errors="replace")
                     break
 
