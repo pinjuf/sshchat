@@ -92,9 +92,12 @@ def send_global(msg="", context="MESSAGE", usercolor="???", target=False):
         pass
     is_sending_global = True
 
+    for user in chans:
+        msg = msg.replace("@"+user.username, usercolor)
+
     if target:
         target = list(dict.fromkeys(target))
-    for usersc in chans.copy():
+    for usersc in chans:
         try:
             # check if user is targeted
             if target and usersc.username not in target:
@@ -171,6 +174,8 @@ def handle_user_input(usersc):
                     usersc.chan.send(transport)
                 else:
                     usersc.chan.send(f"\x1b[0;0f\x1b[K{usersc.msg[-60:]}\x1b[0;{usersc.cursorpos+1}f")
+                    if len(usersc.msg) > 60:
+                        usersc.chan.send("\x1b[0;61f")
 
             # set cursor to 0, 0 and clear line
             usersc.chan.send("\x1b[0;0f\x1b[K")
